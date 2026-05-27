@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doctor Gadget Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body { font-family: Segoe UI, sans-serif; background: #f5f7fb; max-width: 480px; margin: auto; padding: 15px; }
+.card { background: white; padding: 18px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 15px; }
+h2 { margin: 0 0 4px 0; }
+input, select, textarea, button { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; margin-top: 8px; font-size: 15px; box-sizing: border-box; }
+textarea { resize: vertical; min-height: 70px; font-family: Segoe UI, sans-serif; }
+button { background: #1565c0; color: white; font-weight: bold; border: none; cursor: pointer; }
+button:hover { background: #0d47a1; }
+button:disabled { background: #90a4ae; cursor: not-allowed; }
+.btn-red { background: #e53935; width: auto; padding: 6px 12px; margin-top: 0; font-size: 13px; border-radius: 8px; }
+.btn-red:hover { background: #b71c1c; }
+.btn-green { background: #2e7d32; width: auto; padding: 6px 12px; margin-top: 0; font-size: 13px; border-radius: 8px; }
+.btn-green:hover { background: #1b5e20; }
+.btn-orange { background: #e65100; width: auto; padding: 6px 12px; margin-top: 0; font-size: 13px; border-radius: 8px; }
+.btn-orange:hover { background: #bf360c; }
+.btn-logout { background: #e53935; width: auto; padding: 8px 14px; margin-top: 0; }
+.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.small { font-size: 12px; color: #777; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; color: white; font-weight: bold; margin-bottom: 2px; }
+.badge-cashin  { background: #2e7d32; }
+.badge-cashout { background: #e53935; }
+.badge-load    { background: #6a1b9a; }
+.badge-bills   { background: #e65100; }
+.badge-repair  { background: #1565c0; }
+.badge-pending  { background: #f57f17; }
+.badge-done     { background: #1565c0; }
+.badge-released { background: #2e7d32; }
+.txn-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+.txn-info { flex: 1; }
+.txn-ref { font-weight: bold; font-size: 14px; }
+.txn-meta { font-size: 12px; color: #777; }
+.txn-amount { text-align: right; margin-right: 10px; }
+.repair-card { background: #f8f9ff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 4px solid #1565c0; }
+.repair-card.released { border-left-color: #2e7d32; background: #f1f8f1; }
+.repair-card.pending { border-left-color: #f57f17; background: #fffde7; }
+.repair-title { font-weight: bold; font-size: 15px; }
+.repair-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.repair-actions button { margin-top: 0; }
+.section-title { font-weight: bold; font-size: 15px; margin: 14px 0 6px 0; color: #333; }
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.summary-box { background: #f0f4ff; border-radius: 12px; padding: 12px; text-align: center; }
+.summary-box .val { font-size: 18px; font-weight: bold; color: #1565c0; }
+.summary-box .lbl { font-size: 11px; color: #777; margin-top: 2px; }
+.summary-box.green { background: #e8f5e9; }
+.summary-box.green .val { color: #2e7d32; }
+.summary-box.red { background: #ffebee; }
+.summary-box.red .val { color: #e53935; }
+.summary-box.gold { background: #fff8e1; }
+.summary-box.gold .val { color: #f57f17; }
+.reset-form { background: #f9f9f9; border-radius: 10px; padding: 12px; margin-top: 8px; }
+.sync-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 6px; font-weight: bold; }
+.loading { text-align: center; padding: 30px; color: #777; font-size: 16px; }
+.tab-nav { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 4px; }
+.tab-btn { flex: 1; padding: 9px 4px; font-size: 11px; border-radius: 10px; background: #e0e7ff; color: #1565c0; font-weight: bold; border: none; cursor: pointer; margin-top: 0; width: auto; white-space: nowrap; min-width: 52px; }
+.tab-btn.active { background: #1565c0; color: white; }
+.breakdown-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.breakdown-label { font-size: 14px; color: #444; }
+.breakdown-val { font-weight: bold; color: #1565c0; }
+.month-card { background: #f8f9ff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 4px solid #1565c0; }
+.month-title { font-weight: bold; font-size: 15px; color: #1565c0; margin-bottom: 6px; }
+.print-btn { background: #37474f; margin-top: 10px; }
+.eod-card { background: linear-gradient(135deg, #1565c0, #0d47a1); border-radius: 16px; padding: 20px; color: white; margin-bottom: 15px; }
+.eod-title { font-size: 18px; font-weight: bold; margin-bottom: 14px; }
+.eod-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.15); font-size: 14px; }
+.eod-section { font-size: 12px; opacity: 0.7; margin: 10px 0 4px 0; text-transform: uppercase; letter-spacing: 1px; }
+.eod-total { font-size: 20px; font-weight: bold; margin-top: 12px; text-align: center; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; }
+.eod-total .lbl { font-size: 12px; opacity: 0.8; }
+.eod-total .val { font-size: 26px; }
+.eod-positive { color: #a5d6a7; }
+.eod-negative { color: #ef9a9a; }
+.exp-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+.user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; gap: 6px; }
+.balance-due { color: #e53935; font-weight: bold; }
+.balance-paid { color: #2e7d32; font-weight: bold; }
+.starting-cash-box { background: #e3f2fd; border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.starting-cash-box .lbl { font-size: 13px; color: #1565c0; font-weight: bold; }
+.starting-cash-box .val { font-size: 20px; font-weight: bold; color: #1565c0; }
+@media print {
+  .tab-nav, .no-print { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">⏳ Loading...</div></div>
+<script>
+const SUPABASE_URL = "https://mbbtzadwqyscdpqpgspg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hd2pKrMeLTqiucmvNMU2sQ_0CqM70DG";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = JSON.parse(localStorage.getItem("dg_current") || "null");
+let users    = [];
+let txns     = [];
+let repairs  = [];
+let expenses = [];
+let activeTab = "transactions";
+
+async function loadData() {
+  const [u, t, r, e] = await Promise.all([
+    sb.from("dg_users").select("*"),
+    sb.from("dg_txns").select("*").order("created_at", { ascending: false }),
+    sb.from("dg_repairs").select("*").order("created_at", { ascending: false }),
+    sb.from("dg_expenses").select("*").order("created_at", { ascending: false })
+  ]);
+  users    = u.data || [];
+  txns     = t.data || [];
+  repairs  = r.data || [];
+  expenses = e.data || [];
+  if (users.length === 0) {
+    await sb.from("dg_users").insert([{ username: "admin", password: "admin123", role: "admin", store: "Main" }]);
+    const { data } = await sb.from("dg_users").select("*");
+    users = data || [];
+  }
+}
+
+function switchTab(tab) { activeTab = tab; render(); }
+
+async function login() {
+  const u = document.getElementById("un").value.trim();
+  const p = document.getElementById("pw").value;
+  document.getElementById("loginBtn").disabled = true;
+  document.getElementById("loginBtn").textContent = "Logging in...";
+  await loadData();
+  const acc = users.find(x => x.username === u && x.password === p);
+  if (!acc) {
+    alert("Wrong username or password.");
+    document.getElementById("loginBtn").disabled = false;
+    document.getElementById("loginBtn").textContent = "Login";
+    return;
+  }
+  currentUser = acc;
+  localStorage.setItem("dg_current", JSON.stringify(currentUser));
+  render();
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem("dg_current");
+  render();
+}
+
+async function addTxn() {
+  const ref    = document.getElementById("ref").value.trim();
+  const type   = document.getElementById("type").value;
+  const amount = Number(document.getElementById("amount").value);
+  const fee    = Number(document.getElementById("fee").value || 0);
+  if (!ref)               { alert("Reference is required."); return; }
+  if (!amount || amount <= 0) { alert("Invalid amount."); return; }
+  document.getElementById("addBtn").disabled = true;
+  document.getElementById("addBtn").textContent = "Saving...";
+  await sb.from("dg_txns").insert([{ ref, type, amount, fee, store: currentUser.store, owner: currentUser.username }]);
+  document.getElementById("ref").value = "";
+  document.getElementById("amount").value = "";
+  document.getElementById("fee").value = "";
+  await loadData();
+  document.getElementById("addBtn").disabled = false;
+  document.getElementById("addBtn").textContent = "Add Transaction";
+  render();
+}
+
+async function deleteTxn(id) {
+  if (!confirm("Delete this transaction?")) return;
+  await sb.from("dg_txns").delete().eq("id", id);
+  await loadData(); render();
+}
+
+async function addRepair() {
+  const customer = document.getElementById("rcustomer").value.trim();
+  const device   = document.getElementById("rdevice").value.trim();
+  const issue    = document.getElementById("rissue").value.trim();
+  const price    = Number(document.getElementById("rprice").value || 0);
+  const deposit  = Number(document.getElementById("rdeposit").value || 0);
+  if (!customer || !device || !issue) { alert("Please fill in customer, device, and issue."); return; }
+  if (deposit > price) { alert("Deposit cannot exceed price."); return; }
+  document.getElementById("addRepairBtn").disabled = true;
+  document.getElementById("addRepairBtn").textContent = "Saving...";
+  await sb.from("dg_repairs").insert([{ customer, device, issue, price, deposit, status: "Pending", store: currentUser.store, owner: currentUser.username }]);
+  document.getElementById("rcustomer").value = "";
+  document.getElementById("rdevice").value = "";
+  document.getElementById("rissue").value = "";
+  document.getElementById("rprice").value = "";
+  document.getElementById("rdeposit").value = "";
+  await loadData();
+  document.getElementById("addRepairBtn").disabled = false;
+  document.getElementById("addRepairBtn").textContent = "Add Repair Job";
+  render();
+}
+
+async function updateRepairStatus(id, status) {
+  await sb.from("dg_repairs").update({ status }).eq("id", id);
+  await loadData(); render();
+}
+
+async function deleteRepair(id) {
+  if (!confirm("Delete this repair record?")) return;
+  await sb.from("dg_repairs").delete().eq("id", id);
+  await loadData(); render();
+}
+
+async function addDeposit(id) {
+  const extra = Number(document.getElementById("dep_" + id).value || 0);
+  if (!extra || extra <= 0) { alert("Enter valid deposit amount."); return; }
+  const repair = repairs.find(r => r.id === id);
+  const newDeposit = Number(repair.deposit) + extra;
+  if (newDeposit > Number(repair.price)) { alert("Total deposit cannot exceed price."); return; }
+  await sb.from("dg_repairs").update({ deposit: newDeposit }).eq("id", id);
+  await loadData(); render();
+}
+
+// --- EXPENSES (includes Starting Cash as type) ---
+async function addExpense(isStarting) {
+  const descId   = isStarting ? "startdesc" : "expdesc";
+  const amountId = isStarting ? "startamount" : "expamount";
+  const btnId    = isStarting ? "addStartBtn" : "addExpBtn";
+  const description = isStarting ? "💵 Starting Cash" : document.getElementById(descId).value.trim();
+  const amount      = Number(document.getElementById(amountId).value);
+  if (!isStarting && !description) { alert("Description is required."); return; }
+  if (!amount || amount <= 0) { alert("Invalid amount."); return; }
+  document.getElementById(btnId).disabled = true;
+  document.getElementById(btnId).textContent = "Saving...";
+  await sb.from("dg_expenses").insert([{
+    description,
+    amount,
+    is_starting_cash: isStarting ? true : false,
+    store: currentUser.store,
+    owner: currentUser.username
+  }]);
+  if (!isStarting) document.getElementById(descId).value = "";
+  document.getElementById(amountId).value = "";
+  await loadData();
+  document.getElementById(btnId).disabled = false;
+  document.getElementById(btnId).textContent = isStarting ? "Add Starting Cash" : "Add Expense";
+  render();
+}
+
+async function deleteExpense(id) {
+  if (!confirm("Delete this entry?")) return;
+  await sb.from("dg_expenses").delete().eq("id", id);
+  await loadData(); render();
+}
+
+// --- USERS ---
+async function createUser() {
+  const username = document.getElementById("newuser").value.trim();
+  const password = document.getElementById("newpass").value.trim();
+  const store    = document.getElementById("newstore").value.trim();
+  if (!username || !password || !store) { alert("Please fill in all fields."); return; }
+  if (users.find(u => u.username === username)) { alert("Username already exists."); return; }
+  await sb.from("dg_users").insert([{ username, password, store, role: "user" }]);
+  document.getElementById("newuser").value = "";
+  document.getElementById("newpass").value = "";
+  document.getElementById("newstore").value = "";
+  alert("User created!");
+  await loadData(); render();
+}
+
+async function deleteUser(username) {
+  if (username === "admin") { alert("Cannot delete admin."); return; }
+  if (!confirm("Delete this user?")) return;
+  await sb.from("dg_users").delete().eq("username", username);
+  await loadData(); render();
+}
+
+async function adminResetPassword(username) {
+  const safeId = username.replace(/[^a-zA-Z0-9_]/g, "_");
+  const newPass = document.getElementById("rp_" + safeId).value.trim();
+  if (!newPass || newPass.length < 4) { alert("Password must be at least 4 characters."); return; }
+  await sb.from("dg_users").update({ password: newPass }).eq("username", username);
+  document.getElementById("rp_" + safeId).value = "";
+  alert("Password reset for " + username + "!");
+  await loadData();
+}
+
+async function changePassword() {
+  const oldPass  = document.getElementById("oldpass").value;
+  const newPass  = document.getElementById("newpass1").value.trim();
+  const confPass = document.getElementById("confpass").value.trim();
+  if (!oldPass || !newPass || !confPass) { alert("Fill in all fields."); return; }
+  if (oldPass !== currentUser.password) { alert("Current password incorrect."); return; }
+  if (newPass.length < 4) { alert("New password must be 4+ characters."); return; }
+  if (newPass !== confPass) { alert("Passwords do not match."); return; }
+  await sb.from("dg_users").update({ password: newPass }).eq("username", currentUser.username);
+  currentUser.password = newPass;
+  localStorage.setItem("dg_current", JSON.stringify(currentUser));
+  document.getElementById("oldpass").value = "";
+  document.getElementById("newpass1").value = "";
+  document.getElementById("confpass").value = "";
+  alert("Password changed!");
+  await loadData();
+}
+
+function badgeClass(type) {
+  if (type === "Cash In")  return "badge-cashin";
+  if (type === "Cash Out") return "badge-cashout";
+  if (type === "Load")     return "badge-load";
+  if (type === "Bills")    return "badge-bills";
+  if (type === "Repair")   return "badge-repair";
+  return "badge-cashin";
+}
+
+function statusBadge(s) {
+  if (s === "Pending")  return "badge-pending";
+  if (s === "Done")     return "badge-done";
+  if (s === "Released") return "badge-released";
+  return "badge-pending";
+}
+
+function toDateStr(dt) {
+  return new Date(dt).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function todayStr() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+
+function toPhDate(dt) {
+  return new Date(dt).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+
+function getMyTxns()     { return currentUser.role === "admin" ? txns     : txns.filter(t => t.owner === currentUser.username); }
+function getMyRepairs()  { return currentUser.role === "admin" ? repairs  : repairs.filter(r => r.owner === currentUser.username); }
+function getMyExpenses() { return currentUser.role === "admin" ? expenses : expenses.filter(e => e.owner === currentUser.username); }
+
+function computeEOD(dateStr, myTxns, myRepairs, myExpenses) {
+  const dTxns     = myTxns.filter(t => toPhDate(t.created_at) === dateStr);
+  const dRepairs  = myRepairs.filter(r => toPhDate(r.created_at) === dateStr);
+  const dExpenses = myExpenses.filter(e => toPhDate(e.created_at) === dateStr);
+
+  const dStarting  = dExpenses.filter(e => e.is_starting_cash);
+  const dRealExp   = dExpenses.filter(e => !e.is_starting_cash);
+
+  const fees         = dTxns.reduce((s,t) => s + Number(t.fee), 0);
+  const repairIncome = dRepairs.reduce((s,r) => s + Number(r.deposit), 0);
+  const startingCash = dStarting.reduce((s,e) => s + Number(e.amount), 0);
+  const totalIncome  = fees + repairIncome + startingCash;
+  const totalExp     = dRealExp.reduce((s,e) => s + Number(e.amount), 0);
+  const netProfit    = totalIncome - totalExp;
+
+  // txn counts
+  const cashIn  = dTxns.filter(t => t.type === "Cash In").length;
+  const cashOut = dTxns.filter(t => t.type === "Cash Out").length;
+  const load    = dTxns.filter(t => t.type === "Load").length;
+  const bills   = dTxns.filter(t => t.type === "Bills").length;
+
+  return { fees, repairIncome, startingCash, totalIncome, totalExp, netProfit, dRealExp, dStarting, cashIn, cashOut, load, bills, dTxns, dRepairs };
+}
+
+function render() {
+  const app = document.getElementById("app");
+  if (!currentUser) {
+    app.innerHTML = `
+      <div class="card">
+        <h2>💰 Doctor Gadget</h2>
+        <div class="small">Cash & Repair Tracker <span class="sync-badge">☁️ Cloud Sync</span></div>
+        <input id="un" placeholder="Username">
+        <input id="pw" type="password" placeholder="Password">
+        <button id="loginBtn" onclick="login()">Login</button>
+      </div>`;
+    return;
+  }
+
+  const myTxns     = getMyTxns();
+  const myRepairs  = getMyRepairs();
+  const myExpenses = getMyExpenses();
+  const today      = todayStr();
+  const eod        = computeEOD(today, myTxns, myRepairs, myExpenses);
+  const pendingCount = myRepairs.filter(r => r.status === "Pending").length;
+
+  let tabContent = "";
+
+  // ---- TRANSACTIONS ----
+  if (activeTab === "transactions") {
+    let txnRows = !myTxns.length ? `<div class="small" style="padding:10px 0">No transactions yet.</div>` : "";
+    myTxns.forEach(t => {
+      const delBtn = currentUser.role === "admin" ? `<button class="btn-red" onclick="deleteTxn(${t.id})">🗑️</button>` : "";
+      txnRows += `
+        <div class="txn-row">
+          <div class="txn-info">
+            <span class="badge ${badgeClass(t.type)}">${t.type}</span><br>
+            <div class="txn-ref">${t.ref}</div>
+            <div class="txn-meta">${t.store} · ${new Date(t.created_at).toLocaleString()}</div>
+          </div>
+          <div class="txn-amount">
+            <div style="font-weight:bold">₱${Number(t.amount).toLocaleString()}</div>
+            <div class="small">Fee: ₱${Number(t.fee).toLocaleString()}</div>
+          </div>
+          ${delBtn}
+        </div>`;
+    });
+    tabContent = `
+      <div class="card">
+        <div class="section-title">➕ New Transaction</div>
+        <input id="ref" placeholder="Reference / Customer Name">
+        <select id="type">
+          <option value="Cash In">💵 Cash In</option>
+          <option value="Cash Out">💸 Cash Out</option>
+          <option value="Load">📱 Load</option>
+          <option value="Bills">🧾 Bills</option>
+        </select>
+        <input id="amount" type="number" placeholder="Amount (₱)">
+        <input id="fee" type="number" placeholder="Fee (₱)">
+        <button id="addBtn" onclick="addTxn()">Add Transaction</button>
+      </div>
+      <div class="card">
+        <div class="section-title">📋 Transactions</div>
+        ${txnRows}
+      </div>`;
+
+  // ---- REPAIR ----
+  } else if (activeTab === "repair") {
+    let repairRows = !myRepairs.length ? `<div class="small" style="padding:10px 0">No repair jobs yet.</div>` : "";
+    myRepairs.forEach(r => {
+      const balance   = Number(r.price) - Number(r.deposit);
+      const cardClass = r.status === "Released" ? "released" : r.status === "Done" ? "done" : "pending";
+      const statusBtns = r.status === "Pending"
+        ? `<button class="btn-green" onclick="updateRepairStatus(${r.id},'Done')">✅ Done</button>`
+        : r.status === "Done"
+        ? `<button class="btn-green" onclick="updateRepairStatus(${r.id},'Released')">📦 Released</button>
+           <button class="btn-orange" onclick="updateRepairStatus(${r.id},'Pending')">↩️ Pending</button>`
+        : `<button class="btn-orange" onclick="updateRepairStatus(${r.id},'Done')">↩️ Undo</button>`;
+      const delBtn = currentUser.role === "admin" ? `<button class="btn-red" onclick="deleteRepair(${r.id})">🗑️</button>` : "";
+      const depInput = balance > 0 ? `
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input id="dep_${r.id}" type="number" placeholder="Add deposit ₱" style="margin-top:0;flex:1;">
+          <button class="btn-green" onclick="addDeposit(${r.id})">+ Deposit</button>
+        </div>` : "";
+      repairRows += `
+        <div class="repair-card ${cardClass}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <span class="badge ${statusBadge(r.status)}">${r.status}</span>
+              <div class="repair-title">👤 ${r.customer}</div>
+              <div class="small">📱 ${r.device}</div>
+              <div class="small">🔧 ${r.issue}</div>
+              <div class="small">📅 ${toDateStr(r.created_at)} · ${r.store}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:bold;color:#1565c0">₱${Number(r.price).toLocaleString()}</div>
+              <div class="small balance-paid">Paid: ₱${Number(r.deposit).toLocaleString()}</div>
+              <div class="small balance-due">Bal: ₱${balance.toLocaleString()}</div>
+            </div>
+          </div>
+          ${depInput}
+          <div class="repair-actions">${statusBtns}${delBtn}</div>
+        </div>`;
+    });
+    tabContent = `
+      <div class="card">
+        <div class="section-title">🔧 New Repair Job</div>
+        <input id="rcustomer" placeholder="Customer Name">
+        <input id="rdevice" placeholder="Device (e.g. iPhone 13)">
+        <textarea id="rissue" placeholder="Issue / Problem"></textarea>
+        <input id="rprice" type="number" placeholder="Repair Price (₱)">
+        <input id="rdeposit" type="number" placeholder="Deposit (₱) - optional">
+        <button id="addRepairBtn" onclick="addRepair()">Add Repair Job</button>
+      </div>
+      <div class="card">
+        <div class="section-title">📋 Repair Jobs</div>
+        ${repairRows}
+      </div>`;
+
+  // ---- EXPENSES ----
+  } else if (activeTab === "expenses") {
+    const todayExp      = myExpenses.filter(e => toPhDate(e.created_at) === today);
+    const todayStart    = todayExp.filter(e => e.is_starting_cash).reduce((s,e) => s + Number(e.amount), 0);
+    const todayRealExp  = todayExp.filter(e => !e.is_starting_cash).reduce((s,e) => s + Number(e.amount), 0);
+
+    let expRows = "";
+    const realExps = myExpenses.filter(e => !e.is_starting_cash);
+    const startExps = myExpenses.filter(e => e.is_starting_cash);
+
+    if (!myExpenses.length) expRows = `<div class="small" style="padding:10px 0">No entries yet.</div>`;
+
+    startExps.forEach(e => {
+      const delBtn = currentUser.role === "admin" ? `<button class="btn-red" onclick="deleteExpense(${e.id})">🗑️</button>` : "";
+      expRows += `
+        <div class="exp-row">
+          <div class="txn-info">
+            <div class="txn-ref" style="color:#1565c0">${e.description}</div>
+            <div class="txn-meta">${e.store} · ${new Date(e.created_at).toLocaleString()}</div>
+          </div>
+          <div class="txn-amount"><div style="font-weight:bold;color:#1565c0">+₱${Number(e.amount).toLocaleString()}</div></div>
+          ${delBtn}
+        </div>`;
+    });
+
+    realExps.forEach(e => {
+      const delBtn = currentUser.role === "admin" ? `<button class="btn-red" onclick="deleteExpense(${e.id})">🗑️</button>` : "";
+      expRows += `
+        <div class="exp-row">
+          <div class="txn-info">
+            <div class="txn-ref">🧾 ${e.description}</div>
+            <div class="txn-meta">${e.store} · ${new Date(e.created_at).toLocaleString()}</div>
+          </div>
+          <div class="txn-amount"><div style="font-weight:bold;color:#e53935">-₱${Number(e.amount).toLocaleString()}</div></div>
+          ${delBtn}
+        </div>`;
+    });
+
+    tabContent = `
+      <div class="card">
+        <div class="summary-grid">
+          <div class="summary-box"><div class="val">₱${todayStart.toLocaleString()}</div><div class="lbl">Starting Cash Today</div></div>
+          <div class="summary-box red"><div class="val">₱${todayRealExp.toLocaleString()}</div><div class="lbl">Expenses Today</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">💵 Starting Cash (Pang-barya)</div>
+        <input id="startamount" type="number" placeholder="Amount (₱)">
+        <button id="addStartBtn" onclick="addExpense(true)">Add Starting Cash</button>
+      </div>
+      <div class="card">
+        <div class="section-title">🧾 Add Expense</div>
+        <input id="expdesc" placeholder="Description (e.g. Lunch, Kuryente)">
+        <input id="expamount" type="number" placeholder="Amount (₱)">
+        <button id="addExpBtn" onclick="addExpense(false)">Add Expense</button>
+      </div>
+      <div class="card">
+        <div class="section-title">📋 All Entries</div>
+        ${expRows}
+      </div>`;
+
+  // ---- EOD ----
+  } else if (activeTab === "eod") {
+    const netColor = eod.netProfit >= 0 ? "eod-positive" : "eod-negative";
+    let expList = "";
+    if (eod.dRealExp.length) {
+      eod.dRealExp.forEach(e => {
+        expList += `<div class="eod-row"><span>${e.description}</span><span style="color:#ef9a9a">-₱${Number(e.amount).toLocaleString()}</span></div>`;
+      });
+    } else {
+      expList = `<div class="eod-row"><span style="opacity:0.6">Walang expenses ngayon</span><span>₱0</span></div>`;
+    }
+
+    tabContent = `
+      <div class="eod-card">
+        <div class="eod-title">📊 End of Day — ${toDateStr(today+"T00:00:00")}</div>
+
+        <div class="eod-section">📈 INCOME</div>
+        <div class="eod-row"><span>💵 Starting Cash</span><span>₱${eod.startingCash.toLocaleString()}</span></div>
+        <div class="eod-row"><span>💰 Total Fees (${eod.dTxns.length} txns)</span><span>₱${eod.fees.toLocaleString()}</span></div>
+        <div class="eod-row"><span>🔧 Repair Collected</span><span>₱${eod.repairIncome.toLocaleString()}</span></div>
+        <div class="eod-row" style="font-weight:bold;padding-top:8px;">
+          <span>📈 Total Income</span><span>₱${eod.totalIncome.toLocaleString()}</span>
+        </div>
+
+        <div class="eod-section" style="margin-top:14px">📋 TRANSACTION COUNTS</div>
+        <div class="eod-row"><span>💵 Cash In</span><span>${eod.cashIn}x</span></div>
+        <div class="eod-row"><span>💸 Cash Out</span><span>${eod.cashOut}x</span></div>
+        <div class="eod-row"><span>📱 Load</span><span>${eod.load}x</span></div>
+        <div class="eod-row"><span>🧾 Bills</span><span>${eod.bills}x</span></div>
+        <div class="eod-row"><span>🔧 Repairs</span><span>${eod.dRepairs.length}x</span></div>
+
+        <div class="eod-section" style="margin-top:14px">➖ EXPENSES</div>
+        ${expList}
+        <div class="eod-row" style="font-weight:bold;color:#ef9a9a;">
+          <span>Total Expenses</span><span>-₱${eod.totalExp.toLocaleString()}</span>
+        </div>
+
+        <div class="eod-total">
+          <div class="lbl">NET PROFIT NGAYON</div>
+          <div class="val ${netColor}">₱${eod.netProfit.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="card no-print">
+        <button class="print-btn" onclick="window.print()">🖨️ Print End of Day Report</button>
+      </div>`;
+
+  // ---- REPORT ----
+  } else if (activeTab === "report") {
+    tabContent = `
+      <div class="card">
+        <div class="section-title">📊 Sales Report</div>
+        <select id="rptMode" onchange="toggleReportFields()" style="margin-top:0">
+          <option value="day">📅 Per Day</option>
+          <option value="range">📆 Date Range</option>
+          <option value="month">🗓️ Monthly Summary</option>
+        </select>
+        <div id="rptFieldsDay" style="display:flex;gap:8px;margin-top:8px;">
+          <input type="date" id="rptFrom" style="flex:1;margin-top:0;">
+        </div>
+        <div id="rptFieldsRange" style="display:none;gap:8px;margin-top:8px;">
+          <input type="date" id="rptFromR" style="flex:1;margin-top:0;">
+          <input type="date" id="rptToR" style="flex:1;margin-top:0;">
+        </div>
+        <button onclick="runReport()" style="margin-top:8px">Generate Report</button>
+      </div>
+      <div id="reportResult"></div>`;
+
+  // ---- SETTINGS ----
+  } else if (activeTab === "settings") {
+    let adminSection = "";
+    if (currentUser.role === "admin") {
+      let userRows = "";
+      users.forEach(u => {
+        const safeId = u.username.replace(/[^a-zA-Z0-9_]/g, "_");
+        userRows += `
+          <div class="user-row" style="flex-direction:column;align-items:flex-start;">
+            <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+              <div><b>${u.username}</b><span class="small"> · ${u.store} · ${u.role}</span></div>
+              ${u.username !== "admin" ? `<button class="btn-red" onclick="deleteUser('${u.username}')">🗑️ Delete</button>` : `<span class="small" style="color:#aaa">protected</span>`}
+            </div>
+            <div class="reset-form" style="width:100%;box-sizing:border-box;">
+              <div class="small" style="margin-bottom:4px;">Reset password for <b>${u.username}</b>:</div>
+              <div style="display:flex;gap:6px;">
+                <input id="rp_${safeId}" type="password" placeholder="New password" style="margin-top:0;flex:1;">
+                <button class="btn-green" onclick="adminResetPassword('${u.username}')">Reset</button>
+              </div>
+            </div>
+          </div>`;
+      });
+      adminSection = `
+        <div class="card">
+          <div class="section-title">👥 Users</div>
+          ${userRows}
+          <div class="section-title" style="margin-top:16px">➕ Create New User</div>
+          <input id="newuser" placeholder="Username">
+          <input id="newpass" type="password" placeholder="Password">
+          <input id="newstore" placeholder="Store Name">
+          <button onclick="createUser()">Create User</button>
+        </div>`;
+    }
+    tabContent = `
+      <div class="card">
+        <div class="section-title">🔑 Change My Password</div>
+        <input id="oldpass" type="password" placeholder="Current Password">
+        <input id="newpass1" type="password" placeholder="New Password">
+        <input id="confpass" type="password" placeholder="Confirm New Password">
+        <button onclick="changePassword()">Change Password</button>
+      </div>
+      ${adminSection}`;
+  }
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="top">
+        <div>
+          <h2>💰 Doctor Gadget</h2>
+          <div class="small">${currentUser.store} · ${currentUser.role} <span class="sync-badge">☁️ Synced</span></div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-box green"><div class="val">₱${eod.totalIncome.toLocaleString()}</div><div class="lbl">Today's Income</div></div>
+        <div class="summary-box red"><div class="val">₱${eod.totalExp.toLocaleString()}</div><div class="lbl">Today's Expenses</div></div>
+        <div class="summary-box ${eod.netProfit >= 0 ? 'green' : 'red'}"><div class="val">₱${eod.netProfit.toLocaleString()}</div><div class="lbl">Net Profit</div></div>
+        <div class="summary-box gold"><div class="val">${pendingCount}</div><div class="lbl">Pending Repairs</div></div>
+      </div>
+    </div>
+    <div class="tab-nav no-print">
+      <button class="tab-btn ${activeTab==='transactions'?'active':''}" onclick="switchTab('transactions')">💳 Txns</button>
+      <button class="tab-btn ${activeTab==='repair'?'active':''}" onclick="switchTab('repair')">🔧 Repair</button>
+      <button class="tab-btn ${activeTab==='expenses'?'active':''}" onclick="switchTab('expenses')">🧾 Gastos</button>
+      <button class="tab-btn ${activeTab==='eod'?'active':''}" onclick="switchTab('eod')">📊 EOD</button>
+      <button class="tab-btn ${activeTab==='report'?'active':''}" onclick="switchTab('report')">📈 Report</button>
+      <button class="tab-btn ${activeTab==='settings'?'active':''}" onclick="switchTab('settings')">⚙️</button>
+    </div>
+    ${tabContent}`;
+}
+
+function toggleReportFields() {
+  const mode = document.getElementById("rptMode").value;
+  document.getElementById("rptFieldsDay").style.display   = mode === "day"   ? "flex" : "none";
+  document.getElementById("rptFieldsRange").style.display = mode === "range" ? "flex" : "none";
+}
+
+function runReport() {
+  const mode = document.getElementById("rptMode").value;
+  let from = "", to = "";
+  if (mode === "day")   { from = document.getElementById("rptFrom").value; to = from; }
+  if (mode === "range") { from = document.getElementById("rptFromR").value; to = document.getElementById("rptToR").value; }
+  generateReportWith(mode, from, to);
+}
+
+function generateReportWith(mode, dateFrom, dateTo) {
+  const myTxns     = getMyTxns();
+  const myRepairs  = getMyRepairs();
+  const myExpenses = getMyExpenses();
+  const container  = document.getElementById("reportResult");
+
+  if (mode === "day" || mode === "range") {
+    if (!dateFrom) { alert("Please select a date."); return; }
+    const fTxns     = myTxns.filter(t => { const d = toPhDate(t.created_at); return d >= dateFrom && d <= dateTo; });
+    const fRepairs  = myRepairs.filter(r => { const d = toPhDate(r.created_at); return d >= dateFrom && d <= dateTo; });
+    const fExpenses = myExpenses.filter(e => { const d = toPhDate(e.created_at); return d >= dateFrom && d <= dateTo; });
+    const fStarting = fExpenses.filter(e => e.is_starting_cash);
+    const fRealExp  = fExpenses.filter(e => !e.is_starting_cash);
+
+    const fees        = fTxns.reduce((s,t) => s + Number(t.fee), 0);
+    const repair      = fRepairs.reduce((s,r) => s + Number(r.deposit), 0);
+    const startCash   = fStarting.reduce((s,e) => s + Number(e.amount), 0);
+    const totalIncome = fees + repair + startCash;
+    const totalExp    = fRealExp.reduce((s,e) => s + Number(e.amount), 0);
+    const netProfit   = totalIncome - totalExp;
+
+    const expRows = fRealExp.map(e => `
+      <div class="txn-row">
+        <div class="txn-info"><div class="txn-ref">🧾 ${e.description}</div><div class="txn-meta">${toDateStr(e.created_at)}</div></div>
+        <div class="txn-amount"><div style="font-weight:bold;color:#e53935">-₱${Number(e.amount).toLocaleString()}</div></div>
+      </div>`).join("") || `<div class="small">Walang expenses.</div>`;
+
+    const title = mode === "day" ? toDateStr(dateFrom+"T00:00:00") : `${toDateStr(dateFrom+"T00:00:00")} → ${toDateStr(dateTo+"T00:00:00")}`;
+    container.innerHTML = `
+      <div class="card">
+        <div class="section-title">📅 ${title}</div>
+        <div class="summary-grid">
+          <div class="summary-box"><div class="val">₱${startCash.toLocaleString()}</div><div class="lbl">Starting Cash</div></div>
+          <div class="summary-box"><div class="val">₱${fees.toLocaleString()}</div><div class="lbl">Fees</div></div>
+          <div class="summary-box"><div class="val">₱${repair.toLocaleString()}</div><div class="lbl">Repair</div></div>
+          <div class="summary-box green"><div class="val">₱${totalIncome.toLocaleString()}</div><div class="lbl">Total Income</div></div>
+          <div class="summary-box red"><div class="val">₱${totalExp.toLocaleString()}</div><div class="lbl">Expenses</div></div>
+          <div class="summary-box ${netProfit >= 0 ? 'green' : 'red'}"><div class="val">₱${netProfit.toLocaleString()}</div><div class="lbl">Net Profit</div></div>
+        </div>
+        <div class="section-title" style="margin-top:14px">🧾 Expenses</div>
+        ${expRows}
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Print</button>
+      </div>`;
+
+  } else if (mode === "month") {
+    const months = {};
+    myTxns.forEach(t => {
+      const k = toPhDate(t.created_at).slice(0,7);
+      if (!months[k]) months[k] = { txns:[], repairs:[], starting:[], exps:[] };
+      months[k].txns.push(t);
+    });
+    myRepairs.forEach(r => {
+      const k = toPhDate(r.created_at).slice(0,7);
+      if (!months[k]) months[k] = { txns:[], repairs:[], starting:[], exps:[] };
+      months[k].repairs.push(r);
+    });
+    myExpenses.forEach(e => {
+      const k = toPhDate(e.created_at).slice(0,7);
+      if (!months[k]) months[k] = { txns:[], repairs:[], starting:[], exps:[] };
+      if (e.is_starting_cash) months[k].starting.push(e);
+      else months[k].exps.push(e);
+    });
+
+    const sorted = Object.keys(months).sort().reverse();
+    if (!sorted.length) { container.innerHTML = `<div class="card"><div class="small">Walang data pa.</div></div>`; return; }
+
+    const cards = sorted.map(k => {
+      const m = months[k];
+      const fees      = m.txns.reduce((s,t) => s + Number(t.fee), 0);
+      const repair    = m.repairs.reduce((s,r) => s + Number(r.deposit), 0);
+      const startCash = m.starting.reduce((s,e) => s + Number(e.amount), 0);
+      const income    = fees + repair + startCash;
+      const exp       = m.exps.reduce((s,e) => s + Number(e.amount), 0);
+      const net       = income - exp;
+      const label     = new Date(k+"-01").toLocaleDateString("en-PH",{year:"numeric",month:"long"});
+      return `
+        <div class="month-card">
+          <div class="month-title">📅 ${label}</div>
+          <div class="summary-grid">
+            <div class="summary-box green"><div class="val">₱${income.toLocaleString()}</div><div class="lbl">Income</div></div>
+            <div class="summary-box red"><div class="val">₱${exp.toLocaleString()}</div><div class="lbl">Expenses</div></div>
+            <div class="summary-box ${net >= 0 ? 'green' : 'red'}"><div class="val">₱${net.toLocaleString()}</div><div class="lbl">Net Profit</div></div>
+            <div class="summary-box"><div class="val">${m.txns.length + m.repairs.length}</div><div class="lbl">Records</div></div>
+          </div>
+        </div>`;
+    }).join("");
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="section-title">🗓️ Monthly Summary</div>
+        ${cards}
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Print</button>
+      </div>`;
+  }
+}
+
+async function init() {
+  await loadData();
+  if (currentUser) {
+    const found = users.find(u => u.username === currentUser.username && u.password === currentUser.password);
+    if (!found) { currentUser = null; localStorage.removeItem("dg_current"); }
+    else { currentUser = found; localStorage.setItem("dg_current", JSON.stringify(currentUser)); }
+  }
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
